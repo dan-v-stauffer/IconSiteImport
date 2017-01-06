@@ -1,0 +1,28 @@
+<?xml version='1.0'?>
+<!DOCTYPE PZMAP SYSTEM  "flatpack.dtd" >
+<PZMAP>
+    <COLUMN name="PROJECT_CODE_ALIAS" />
+    <COLUMN name="STUDY_CODE_ALIAS" />
+    <COLUMN name="STUDY_STATUS_DESC" />
+    <COLUMN name="SHORT_DESCRIPTION" />
+    <COLUMN name="STUDY_ACRONYM" />
+    <COLUMN name="THIRD_PARTY_IND" />
+    <COLUMN name="GEOGRAPHIC_TYPE_DESC" />
+    <COLUMN name="COUNTRY_CODE" />
+    <COLUMN name="COUNTRY_DESC" />
+    <COLUMN name="STUDY_COUNTRY_SITE_ID" />
+    <COLUMN name="STUDY_SITE_ID" />
+    <COLUMN name="SITE_NAME" />
+    <COLUMN name="POSTAL_ADDRESS_LINES" />
+    <COLUMN name="POSTAL_ADDRESS_CITY_NAME" />
+    <COLUMN name="POSTAL_ADDRESS_STATE_NAME" />
+    <COLUMN name="POSTAL_ADDRESS_POSTAL_CODE" />
+    <COLUMN name="STUDY_SITE_STATUS_DESC" />
+    <COLUMN name="FORENAME" />
+    <COLUMN name="SURNAME" />
+    <COLUMN name="EMAIL_ADDRESS" />
+    <COLUMN name="ROLE_AT_SITE_LVL_CODE" />
+    <COLUMN name="ROLE_AT_SITE_LVL_DESC" />
+    <COLUMN name="START_DATE" />
+    <COLUMN name="END_DATE" />
+</PZMAP>
