@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns:sftp="http://www.mulesoft.org/schema/mule/sftp" 
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:util="http://www.springframework.org/schema/util"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util-3.0.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/sftp http://www.mulesoft.org/schema/mule/sftp/current/mule-sftp.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd">
+
+	<!-- This placeholder bean lets you import the properties from the sftp.properties file. -->
+	<spring:beans>
+		<spring:bean id="property-placeholder" class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
+		    <spring:property name="ignoreUnresolvablePlaceholders" value="true"/>
+		    <spring:property name="ignoreResourceNotFound" value="true"/>
+		    <spring:property name="locations">
+	        <util:list>
+	            <spring:value>classpath:context/icon_site_import.properties</spring:value>
+	            <spring:value>file://${application.context.directory}/icon_site_import.properties</spring:value>
+	        </util:list>
+            </spring:property>
+		</spring:bean>
+		
+		<spring:bean id="property-placeholder_1" class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
+			<spring:property name="ignoreUnresolvablePlaceholders" value="true" />
+			<spring:property name="ignoreResourceNotFound" value="true" />
+			<spring:property name="locations">
+				<util:list>
+					<spring:value>classpath:context/version.properties</spring:value>
+				</util:list>
+			</spring:property>
+		</spring:bean>
+		
+		<spring:bean id="monitoringComponent" class="com.gobalta.mule.mw.monitoring.MonitoringUtil">
+		    <spring:property name="outputFileDirectory" value="${output.file.directory}" />
+		    <spring:property name="sftpHost" value="${sftp.host}" />
+		    <spring:property name="sftpUser" value="${sftp.user}" />
+		    <spring:property name="sftpPassword" value="${sftp.password}" />
+		    <spring:property name="sftpPath" value="${sftp.path}" />
+		    <spring:property name="sftpPort" value="${sftp.port}" />
+		    <spring:property name="sftpTimeout" value="${sftp.timeout}" />
+		    <spring:property name="sftpPollingFrequency" value="${sftp.polling.frequency}" />
+		    <spring:property name="errorDirectory" value="${error.directory}" />
+		    <spring:property name="restUrl" value="${rest.url}" />
+		    <spring:property name="restSecurityToken" value="${rest.security.token}" />
+		    <spring:property name="processedFileDirectory" value="${processed.file.directory}" />
+		    <spring:property name="monitoringPort" value="${monitoring.port}" />
+		    <spring:property name="monitoringHost" value="${monitoring.host}" />
+	    	<spring:property name="commitHash" value="${commit.hash}" />
+	    	<spring:property name="commitDate" value="${commit.date}" />
+		</spring:bean>
+		
+		
+		<spring:bean id="studySiteRestService" class="com.gobalta.mule.mw.rest.studysite.StudySiteRestService">
+		    <spring:property name="serviceURL" value="${rest.url}"/>
+		    <spring:property name="restClient" ref="restClient"/>
+		    <spring:property name="securityToken" value="${rest.security.token}"/>
+		</spring:bean>
+		
+		<spring:bean id="restClient" class="org.springframework.beans.factory.config.MethodInvokingFactoryBean">
+		   <spring:property name="staticMethod" value="javax.ws.rs.client.ClientBuilder.newClient" />
+		</spring:bean>
+		
+		<spring:bean id="maptoCSVTransformer" class="com.gobalta.mule.mw.transformers.csv.MapsToCSVTransformer">
+		   <spring:property name="delimiter" value=","/>
+		   <spring:property name="mappingFile" value="context/mapping/novartis_site_error_mapping.xml"/>
+		</spring:bean>
+		
+		<spring:bean id="csvToMapTransformer" class="com.gobalta.mule.mw.transformers.csv.CSVToMapsTransformer">
+		   <spring:property name="delimiter" value=","/>
+		   <spring:property name="mappingFile" value="context/mapping/icon_site_mapping.xml"/>
+		   <spring:property name="ignoreFirstRecord" value="true"/>
+		   <spring:property name="qualifier" value="&quot;&quot;"/>
+		</spring:bean>
+		
+		<spring:bean id="csvReader" class="com.gobalta.mule.mw.rest.studysite.CSVReader">
+		  <spring:property name="studySiteService" ref="studySiteRestService"/>
+		  <spring:property name="errorDirectory" value="${error.directory}"/>
+		  <spring:property name="processedFileDirectory" value="${processed.file.directory}"/>
+		  <spring:property name="dataFile" value="${data.file}"/>
+		  <spring:property name="maptoCSVTransformer" ref="maptoCSVTransformer"/>
+		</spring:bean>
+
+	</spring:beans>
+	
+    <sftp:connector name="SFTP" validateConnections="true" pollingFrequency="${sftp.polling.frequency}" doc:name="SFTP"/>
+
+	<flow name="monitoring" >
+	    <http:inbound-endpoint exchange-pattern="request-response"
+			host="${monitoring.host}" port="${monitoring.port}" path="IconSiteImport" doc:name="HTTP" />
+		<invoke object-ref="monitoringComponent" method="process" doc:name="Invoke"/>
+        <response>
+            <message-properties-transformer doc:name="Message Properties">
+                <add-message-property key="Content-Type" value="application/json"/>
+            </message-properties-transformer>
+        </response>
+		<catch-exception-strategy doc:name="Catch Exception Strategy">
+	        <logger level="INFO" doc:name="Logger"/>
+	    </catch-exception-strategy>
+	</flow>
+    <flow name="Get_file_from_SFTP_and_make_rest_call">
+        <sftp:inbound-endpoint connector-ref="SFTP" host="${sftp.host}" port="${sftp.port}" path="${sftp.path}" user="${sftp.user}" password="${sftp.password}" responseTimeout="${sftp.timeout}" pollingFrequency="${sftp.polling.frequency}" doc:name="SFTP">
+            <file:filename-wildcard-filter pattern="*.csv"/>
+        </sftp:inbound-endpoint>
+        <logger level="INFO" doc:name="Logger"/>
+        <logger message="A new file is received from SFTP : #[message.inboundProperties.originalFilename]" level="INFO" doc:name="Logger"/>
+        <transformer ref="csvToMapTransformer" doc:name="Transformer Reference"/>
+        <logger level="INFO" doc:name="Logger"/>
+        <invoke object-ref="csvReader" method="processFile" methodArguments="#[message.getPayload()],#[message.inboundProperties.originalFilename]" doc:name="Invoke"/>
+        <catch-exception-strategy doc:name="Catch Exception Strategy">
+            <logger level="INFO" doc:name="Logger"/>
+        </catch-exception-strategy>
+    </flow>
+	
+</mule>
