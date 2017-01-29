@@ -23,7 +23,7 @@ public class CSVToMapsTransformer extends AbstractCSVTransformer {
 	public CSVToMapsTransformer() {
 		registerSourceType(DataTypeFactory.BYTE_ARRAY);
 		registerSourceType(DataTypeFactory.STRING);
-		setReturnDataType(DataTypeFactory.create(List.class));
+		setReturnDataType(DataTypeFactory.create(HashMap.class));
 	}
 	
 	protected Object doTransform(Object src, String encoding)
@@ -49,7 +49,7 @@ public class CSVToMapsTransformer extends AbstractCSVTransformer {
 			throw new TransformerException(
 					buildErrorMessage(dataSet.getErrors()));
 		}
-
+		
 		return datasetToMaps(dataSet);
 	}
 	
@@ -89,13 +89,18 @@ public class CSVToMapsTransformer extends AbstractCSVTransformer {
 	}
 	
 	@SuppressWarnings({ "rawtypes", "unchecked" })
-	private List<Map<String, String>> datasetToMaps(DataSet dataSet) {
+	private Map<String, List<Map<String, String>>> datasetToMaps(DataSet dataSet) {
+		
+		//filesize for Icon files is huge - breaking up sites based on status
+		//eliminates running through 30k records daily and only processing "new" sites
+		
 		if (dataSet == null) {
 			return null;
 		}
 
 		String[] headers = dataSet.getColumns();
-		List rowList = new ArrayList(dataSet.getRowCount());
+		Map<String, List<Map<String, String>>> map 
+					= new HashMap<String, List<Map<String, String>>>();
 
 		while (dataSet.next()) {
 			Map row = new HashMap();
@@ -105,11 +110,17 @@ public class CSVToMapsTransformer extends AbstractCSVTransformer {
 				String value = dataSet.getString(key);
 				row.put(key, value);
 			}
-
-			rowList.add(row);
+			
+			String status = row.get("STUDY_SITE_STATUS").toString().toLowerCase().trim();
+			
+			if(!map.containsKey(status)){
+				map.put(status, new ArrayList());
+				
+			}
+			map.get(status).add(row);
 		}
 
-		return rowList;
+		return map;
 	}
 	
 }

@@ -1,6 +1,7 @@
 package com.gobalta.mule.mw.model;
 
 import java.io.Serializable;
+import java.util.Objects;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -47,4 +48,23 @@ public class PrincipalInvestigator implements Serializable{
 		this.email = email;
 	}
 
+	@Override
+	public boolean equals(Object o) {
+		if(o == this) return true;
+		if(!(o instanceof PrincipalInvestigator)) {
+			return false;
+		}
+		PrincipalInvestigator p = (PrincipalInvestigator)o;
+		
+		return Objects.equals(this.firstName, p.getFirstName()) &&
+				Objects.equals(this.lastName, p.getLastName()) &&
+				Objects.equals(this.title, p.getTitle()) &&
+				Objects.equals(this.email, p.getEmail());
+	}
+	
+	@Override
+	public int hashCode() {
+		return Objects.hash(firstName, lastName, title, email);
+	}
+	
 }
