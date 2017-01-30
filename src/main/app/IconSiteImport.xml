@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<mule xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+<mule xmlns:s3="http://www.mulesoft.org/schema/mule/s3" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:http="http://www.mulesoft.org/schema/mule/http"
 	xmlns:file="http://www.mulesoft.org/schema/mule/file"
 	xmlns:sftp="http://www.mulesoft.org/schema/mule/sftp" 
 	xmlns="http://www.mulesoft.org/schema/mule/core"
@@ -14,7 +14,8 @@ http://www.springframework.org/schema/util http://www.springframework.org/schema
 http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
 http://www.mulesoft.org/schema/mule/sftp http://www.mulesoft.org/schema/mule/sftp/current/mule-sftp.xsd
 http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
-http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd">
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd
+http://www.mulesoft.org/schema/mule/s3 http://www.mulesoft.org/schema/mule/s3/current/mule-s3.xsd">
 
 	<!-- This placeholder bean lets you import the properties from the sftp.properties file. -->
 	<spring:beans>
@@ -85,13 +86,14 @@ http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/m
 		  <spring:property name="studySiteService" ref="studySiteRestService"/>
 		  <spring:property name="errorDirectory" value="${error.directory}"/>
 		  <spring:property name="processedFileDirectory" value="${processed.file.directory}"/>
-		  <spring:property name="dataFile" value="${data.file}"/>
+		  <spring:property name="dataFilePath" value="${data.filePath}"/>
 		  <spring:property name="maptoCSVTransformer" ref="maptoCSVTransformer"/>
 		</spring:bean>
 
 	</spring:beans>
 	
     <sftp:connector name="SFTP" validateConnections="true" pollingFrequency="${sftp.polling.frequency}" doc:name="SFTP"/>
+    <s3:config name="Amazon_S3__Configuration" accessKey="${aws.key.id}" secretKey="${aws.secret.key}" doc:name="Amazon S3: Configuration"/>
 
 	<flow name="monitoring" >
 	    <http:inbound-endpoint exchange-pattern="request-response"
@@ -115,9 +117,16 @@ http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/m
         <transformer ref="csvToMapTransformer" doc:name="Transformer Reference"/>
         <logger level="INFO" doc:name="Logger"/>
         <invoke object-ref="csvReader" method="processFile" methodArguments="#[message.getPayload()],#[message.inboundProperties.originalFilename]" doc:name="Invoke"/>
+        <set-property propertyName="newStudySitesLog" value="#[com.gobalta.mule.mw.monitoring.DataFiles.getLatestDataFileName(${data.file})]" doc:name="Property"/>
+        <flow-ref name="Send_logs_to_S3" doc:name="Send_logs_to_S3"/>
         <catch-exception-strategy doc:name="Catch Exception Strategy">
             <logger level="INFO" doc:name="Logger"/>
         </catch-exception-strategy>
     </flow>
+	<flow name="Send_logs_to_S3">
+        <file:inbound-endpoint path="${data.filePath}" moveToPattern="#[message.outboundProperties.'newStudySitesLog']" responseTimeout="10000" doc:name="File"/>
+        <logger message="JSON log file sent to AWS S3 : #[message.inboundProperties.originalFilename]" level="INFO" doc:name="Logger"/>
+        <s3:create-object config-ref="Amazon_S3__Configuration" bucketName="${aws.bucket}" key="${aws.key} #[message.inboundProperties.originalFilename]" doc:name="Amazon S3"/>
 	
+	</flow>
 </mule>

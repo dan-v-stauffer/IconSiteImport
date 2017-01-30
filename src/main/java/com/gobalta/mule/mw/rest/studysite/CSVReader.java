@@ -14,19 +14,20 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.core.JsonGenerationException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.gobalta.mule.mw.exception.GoBaltoMWException;
 import com.gobalta.mule.mw.model.StudySite;
 import com.gobalta.mule.mw.model.StudySites;
 import com.gobalta.mule.mw.model.StudySiteWrapper;
 import com.gobalta.mule.mw.model.StudySitesWrapper;
 import com.gobalta.mule.mw.transformers.csv.MapsToCSVTransformer;
+import com.gobalta.mule.mw.monitoring.DataFiles;
 
 public class CSVReader {
     
@@ -35,7 +36,7 @@ public class CSVReader {
 	private MapsToCSVTransformer maptoCSVTransformer;
 	private String errorDirectory;
 	private String processedFileDirectory;
-	private String dataFile;
+	private String dataFilePath;
 	private Map<String,StudySite> importedData;
 	private Boolean writeFile = false;
 	private String status = "selected";
@@ -186,17 +187,13 @@ public class CSVReader {
 	{
 		try {
 			importedData = new HashMap<String,StudySite>();
-			File file = new File(Paths.get(dataFile).toString()+"/icon_"+status+"_study_sites.json");
 			
-			if(!file.exists())
-			{
-				file.getParentFile().mkdirs();
-				file.createNewFile();
-				
-			}
-			else
+			File file = DataFiles.getLatestDataFile(dataFilePath);
+
+			if(file != null)
 			{
 				importedData = new ObjectMapper().readValue(file, new TypeReference<HashMap<String,StudySite>>(){});
+				
 			}
 		}
 		catch(IOException io) {
@@ -206,10 +203,12 @@ public class CSVReader {
 	
 	private void writeDataFile() {
 		try{
-
+			String date = new SimpleDateFormat("yyyyMMddhhmmss").format(new Date());	
+			String fileName = "/"+date+"_icon_"+status+"_studysites.json";
 			ObjectMapper objectMapper = new ObjectMapper().setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
 			objectMapper.setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.PUBLIC_ONLY);
-			File file = new File(Paths.get(dataFile).toString()+"/icon_"+status+"_study_sites.json");
+			objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
+			File file = new File(Paths.get(dataFilePath).toString()+fileName);
 			
 			StudySitesWrapper studySites = new StudySitesWrapper();
 			StudySites ss = studySites.getStudySites();
@@ -228,7 +227,6 @@ public class CSVReader {
 			LOGGER.error("IO Error while writing to Data file",io);
 		}
 	}
-	
 	
 	private void writeToErrorFile(List<Map<String,String>> csv,String fileName) throws Exception{
 		try{
@@ -271,11 +269,11 @@ public class CSVReader {
 		this.processedFileDirectory = processedFileDirectory;
 	}
 	
-	public String getDataFile() {
-		return dataFile;
+	public String getDataFilePath() {
+		return dataFilePath;
 	}
 	
-	public void setDataFile(String dataFile) {
-		this.dataFile = dataFile;
+	public void setDataFilePath(String dataFile) {
+		this.dataFilePath = dataFile;
 	}
 }
