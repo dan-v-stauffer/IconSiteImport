@@ -26,20 +26,28 @@ import com.gobalta.mule.mw.model.StudySite;
 import com.gobalta.mule.mw.model.StudySites;
 import com.gobalta.mule.mw.model.StudySiteWrapper;
 import com.gobalta.mule.mw.model.StudySitesWrapper;
-import com.gobalta.mule.mw.transformers.csv.MapsToCSVTransformer;
 import com.gobalta.mule.mw.monitoring.DataFiles;
+import com.gobalta.mule.mw.monitoring.AWSUploader;
+import com.gobalta.mule.mw.transformers.csv.MapsToCSVTransformer;
+
 
 public class CSVReader {
     
 	private static final Logger LOGGER = LoggerFactory.getLogger(CSVReader.class);
 	private StudySiteRestService studySiteService;
 	private MapsToCSVTransformer maptoCSVTransformer;
+	private AWSUploader awsUploader;
 	private String errorDirectory;
 	private String processedFileDirectory;
-	private String dataFilePath;
-	private Map<String,StudySite> importedData;
+	private String dataFileDirectory;
+	private StudySites importedData;
 	private Boolean writeFile = false;
 	private String status = "selected";
+	
+	private Boolean useDynamicDelay;
+	private int minDynamicDelay;
+	private int maxDynamicDelay;
+	private int staticPostDelay;
 	
 	public void processFile(Map<String, List<Map<String, String>>> maps , String fileName) throws Exception {
        LOGGER.info("Processing CSV file line by line , total rows:"+(maps!=null ? maps.size() :0));
@@ -54,55 +62,56 @@ public class CSVReader {
 	   //for now, only process 'selected' sites
 	   List<Map<String,String>> newSites = maps.get("selected");
 	   
-	   int delay = getDelay(newSites.size());
-	   
-       for(Map<String,String> map : newSites){
-		    LOGGER.info("Processing site :"+map);
-		    StudySiteWrapper siteWrapper = new StudySiteWrapper();
-		    StudySite ss = siteWrapper.getStudySite();
-		    
-		    //ICON requirement - only load sites where status == 'selected'
-			if(!trim(map.get("STUDY_SITE_STATUS")).equalsIgnoreCase("selected")) {
-				continue;
-			}
-			else
-			{
-				ss.setStatus("in_activation");
-			}
-			ss.setStudyName(trim(map.get("PROTOCOL")));
-			ss.setCountryCode(trim(map.get("PI_COUNTRY")));
-			ss.setSiteNumber(trim(map.get("SITE")));
-			ss.setInstitution(trim(map.get("ORG_NAME")));
-			ss.setCroStudyName(trim(map.get("STUDY_NUMBER")));
-			ss.setSponsorStudyName(trim(map.get("PROTOCOL")));
-			ss.setSiteId(trim(map.get("SITE_ID")));
-			ss.setIrbEcType("local");
-			ss.getPrincipalInvestigator().setFirstName(trim(map.get("PI_FNAME")));
-			ss.getPrincipalInvestigator().setLastName(trim(map.get("PI_LNAME")));
-			ss.getPrincipalInvestigator().setEmail(trim(map.get("PI_EMAIL")));
-			
-			if(isChangedRecord(ss.getSiteId(), ss)) {	
-				try{
-					if(!writeFile) writeFile = true;
-					studySiteService.postData(siteWrapper,map,fileName);
-					summary.put("success", summary.get("success") + 1);
-					
-					//delay of 6-10 secs to prevent overloading API
-					Thread.sleep(delay);
-				}catch(GoBaltoMWException e){
-					if ("gb-1022".equals(e.getGbCode())) {
-						summary.put("duplicate", summary.get("duplicate") + 1);
-					} else {
-						summary.put("error", summary.get("error") + 1);
-					}
-					map.put("ERROR", e.getMessage());
-					errors.add(map);
+	   if(newSites != null) {
+		   int delay = getDelay(newSites.size());
+		   
+	       for(Map<String,String> map : newSites){
+			    LOGGER.info("Processing site :"+map);
+			    StudySiteWrapper siteWrapper = new StudySiteWrapper();
+			    StudySite ss = siteWrapper.getStudySite();
+			    
+			    //ICON requirement - only load sites where status == 'selected'
+				if(!trim(map.get("STUDY_SITE_STATUS")).equalsIgnoreCase("selected")) {
+					continue;
 				}
-			}
+				else
+				{
+					ss.setStatus("in_activation");
+				}
+				ss.setStudyName(trim(map.get("PROTOCOL")));
+				ss.setCountryCode(trim(map.get("PI_COUNTRY")));
+				ss.setSiteNumber(trim(map.get("SITE")));
+				ss.setInstitution(trim(map.get("ORG_NAME")));
+				ss.setCroStudyName(trim(map.get("STUDY_NUMBER")));
+				ss.setSponsorStudyName(trim(map.get("PROTOCOL")));
+				ss.setSiteId(trim(map.get("SITE_ID")));
+				ss.setIrbEcType("local");
+				ss.getPrincipalInvestigator().setFirstName(trim(map.get("PI_FNAME")));
+				ss.getPrincipalInvestigator().setLastName(trim(map.get("PI_LNAME")));
+				ss.getPrincipalInvestigator().setEmail(trim(map.get("PI_EMAIL")));
+				
+				if(isChangedRecord(ss.getSiteId(), ss)) {	
+					try{
+						if(!writeFile) writeFile = true;
+						studySiteService.postData(siteWrapper,map,fileName);
+						summary.put("success", summary.get("success") + 1);
+						
+						//delay of 6-10 secs to prevent overloading API
+						Thread.sleep(delay);
+					}catch(GoBaltoMWException e){
+						if ("gb-1022".equals(e.getGbCode())) {
+							summary.put("duplicate", summary.get("duplicate") + 1);
+						} else {
+							summary.put("error", summary.get("error") + 1);
+						}
+						map.put("ERROR", e.getMessage());
+						errors.add(map);
+					}
+				}
+		   }
+	       
+	       if(writeFile) writeDataFile();
 	   }
-       
-       if(writeFile) writeDataFile();
-    	   
        if(errors.size()>0){
     	   writeToErrorFile(errors,fileName);
        }
@@ -117,8 +126,9 @@ public class CSVReader {
 	    			summary.get("success") + "," +
 	    			summary.get("duplicate") + "," +
 	    			summary.get("error") + "\n";
-	    	
-			Files.write(Paths.get(processedFileDirectory+"/"+"summary.csv"), data.getBytes(), StandardOpenOption.APPEND);
+	    	String summaryFileName = processedFileDirectory+"/"+"summary.csv";
+			Files.write(Paths.get(summaryFileName), data.getBytes(), StandardOpenOption.APPEND);
+			this.awsUploader.UploadObjectToS3(new File(summaryFileName), "summary");
 		}catch(IOException io){
 			LOGGER.error("Not able to write to Summary file",io);
 			throw new GoBaltoMWException("Not able to write to Summary file",io);
@@ -130,13 +140,16 @@ public class CSVReader {
 	
 	private int getDelay(int recordCount) {
 		
+		if(useDynamicDelay)
+			return staticPostDelay;
+		
 		//introduce a delay between 6-10 seconds to prevent overloading of API
 		if(recordCount <= 0)
 			return 0;
 		
 		int delay = (8 * 3600)/recordCount;
 		
-		return Math.max(Math.min(10, delay), 6)*1000;
+		return Math.max(Math.min(maxDynamicDelay, delay), minDynamicDelay)*1000;
 	}
 	
 	private Boolean isChangedRecord(String siteId, StudySite value) {
@@ -147,25 +160,27 @@ public class CSVReader {
 				}
 				catch(FileNotFoundException nf)
 				{
-					importedData.put(siteId, value);
+					importedData.put(value);
 					writeDataFile();
 					return true;
 				}
 			}
 			
-			if(importedData.containsKey(siteId)) {
-				StudySite  ss = importedData.get(siteId);
-				
+			StudySite  ss = importedData.get("siteId", siteId);
+			if(ss != null) {
 				Boolean isChanged = (!ss.equals(value));
 				if(isChanged) {
-					importedData.put(siteId, value);
+					importedData.delete(value);
+					importedData.put(value);
 				}
 				return isChanged;
 			}
-			else {
-				importedData.put(siteId, value);
+			else
+			{
+				importedData.put(value);
 				return true;
 			}
+			
 		}
 		catch(NullPointerException np) {
 			LOGGER.error("SiteId cannot be null", np );
@@ -182,18 +197,23 @@ public class CSVReader {
 		
 	}
 	
-	@SuppressWarnings("unchecked")
 	private void readDataFile() throws FileNotFoundException
 	{
 		try {
-			importedData = new HashMap<String,StudySite>();
+			importedData = new StudySites();
 			
-			File file = DataFiles.getLatestDataFile(dataFilePath);
+			File file = DataFiles.getLatestDataFile(dataFileDirectory);
 
 			if(file != null)
 			{
-				importedData = new ObjectMapper().readValue(file, new TypeReference<HashMap<String,StudySite>>(){});
+				//importedData = new ObjectMapper().readValue(file, new TypeReference<HashMap<String,StudySite[]>>(){});
 				
+				ObjectMapper objectMapper = new ObjectMapper().setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.PUBLIC_ONLY);
+				
+				importedData = objectMapper.readValue(file, new TypeReference<StudySites>(){});
+				
+				
+				//importedData = new ObjectMapper().readValue(file, new TypeReference<Collection<StudySite>>(){});
 			}
 		}
 		catch(IOException io) {
@@ -202,20 +222,20 @@ public class CSVReader {
 	}
 	
 	private void writeDataFile() {
-		try{
-			String date = new SimpleDateFormat("yyyyMMddhhmmss").format(new Date());	
-			String fileName = "/"+date+"_icon_"+status+"_studysites.json";
-			ObjectMapper objectMapper = new ObjectMapper().setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
-			objectMapper.setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.PUBLIC_ONLY);
+		try {
+			String fileName = "/"+"icon_"+status+"_studysites.json";
+			ObjectMapper objectMapper = new ObjectMapper().setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.PUBLIC_ONLY);
 			objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
-			File file = new File(Paths.get(dataFilePath).toString()+fileName);
+			File file = new File(Paths.get(dataFileDirectory).toString()+fileName);
 			
 			StudySitesWrapper studySites = new StudySitesWrapper();
 			StudySites ss = studySites.getStudySites();
 			
-			ss.setStudySites(importedData.values());
+			ss.setStudySites(importedData.getStudySites());
 			
 			objectMapper.writeValue(file, studySites.getStudySites());
+
+			this.awsUploader.UploadObjectToS3(file, "new");
 		}
 		catch(JsonGenerationException jg) {
 			
@@ -236,6 +256,7 @@ public class CSVReader {
 			BufferedWriter bw = new BufferedWriter(fw);
 			bw.write(rawCSV);
 			bw.close();
+			this.awsUploader.UploadObjectToS3(file, "error");
 		}catch(IOException io){
 			LOGGER.error("Not able to write to Error file",io);
 			throw new GoBaltoMWException("Not able to write to Error file",io);
@@ -257,6 +278,10 @@ public class CSVReader {
 		this.maptoCSVTransformer = maptoCSVTransformer;
 	}
 	
+	public void setAwsUploader(AWSUploader awsUploader) {
+		this.awsUploader = awsUploader;
+	}
+	
 	public void setErrorDirectory(String errorDirectory) {
 		this.errorDirectory = errorDirectory;
 	}
@@ -269,11 +294,43 @@ public class CSVReader {
 		this.processedFileDirectory = processedFileDirectory;
 	}
 	
-	public String getDataFilePath() {
-		return dataFilePath;
+	public String getDataFileDirectory() {
+		return dataFileDirectory;
 	}
 	
-	public void setDataFilePath(String dataFile) {
-		this.dataFilePath = dataFile;
+	public void setDataFileDirectory(String dataFileDirectory) {
+		this.dataFileDirectory = dataFileDirectory;
+	}
+	
+	public Boolean getUseDynamicDelay() {
+		return useDynamicDelay;
+	}
+	
+	public void setUseDynamicDelay(String useDynamicDelay) {
+		this.useDynamicDelay = Boolean.parseBoolean(useDynamicDelay);
+	}
+	
+	public int getMaxDynamicDelay() {
+		return maxDynamicDelay;
+	}
+	
+	public void setMaxDynamicDelay(String maxDynamicDelay) {
+		this.maxDynamicDelay = Integer.parseInt(maxDynamicDelay);
+	}
+	
+	public int getMinDynamicDelay() {
+		return minDynamicDelay;
+	}
+	
+	public void setMinDynamicDelay(String minDynamicDelay) {
+		this.minDynamicDelay = Integer.parseInt(minDynamicDelay);
+	}
+	
+	public int getStaticPostDelay() {
+		return staticPostDelay;
+	}
+	
+	public void setStaticPostDelay(String staticPostDelay) {
+		this.staticPostDelay = Integer.parseInt(staticPostDelay);
 	}
 }

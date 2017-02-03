@@ -1,7 +1,8 @@
 package com.gobalta.mule.mw.monitoring;
 
+@SuppressWarnings("unused")
 public class Configuration {
-    private String outputFileDirectory = "";
+	private String outputFileDirectory = "";
     private String processedFileDirectory = "";
 	private String sftpHost = "";
 	private String sftpUser = "";

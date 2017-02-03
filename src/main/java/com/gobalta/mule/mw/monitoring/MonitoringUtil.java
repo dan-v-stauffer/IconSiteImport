@@ -34,11 +34,15 @@ public class MonitoringUtil {
 		return objectMapper.writeValueAsString(result);
     }
     
+    
+    @SuppressWarnings({"rawtypes", "unchecked"})
     private List<Summary> getSummary() {
     	List<Summary> result = new ArrayList<Summary>();
-    	List list = readSummaryFile();
+    	
+		List list = readSummaryFile();
     	for (Object item: list) {
-    		List<String> ri = (List<String>) item;
+    		
+			List<String> ri = (List<String>) item;
 
     		if (ri.size() < 5) continue;
     		
@@ -56,6 +60,7 @@ public class MonitoringUtil {
     	return result;
     }
 
+	@SuppressWarnings("rawtypes")
 	private List readSummaryFile() {
 		String SEPARATOR = ",";
 		try {

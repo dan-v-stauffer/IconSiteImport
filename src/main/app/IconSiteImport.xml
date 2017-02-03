@@ -72,7 +72,7 @@ http://www.mulesoft.org/schema/mule/s3 http://www.mulesoft.org/schema/mule/s3/cu
 		
 		<spring:bean id="maptoCSVTransformer" class="com.gobalta.mule.mw.transformers.csv.MapsToCSVTransformer">
 		   <spring:property name="delimiter" value=","/>
-		   <spring:property name="mappingFile" value="context/mapping/novartis_site_error_mapping.xml"/>
+		   <spring:property name="mappingFile" value="context/mapping/icon_site_error_mapping.xml"/>
 		</spring:bean>
 		
 		<spring:bean id="csvToMapTransformer" class="com.gobalta.mule.mw.transformers.csv.CSVToMapsTransformer">
@@ -86,14 +86,23 @@ http://www.mulesoft.org/schema/mule/s3 http://www.mulesoft.org/schema/mule/s3/cu
 		  <spring:property name="studySiteService" ref="studySiteRestService"/>
 		  <spring:property name="errorDirectory" value="${error.directory}"/>
 		  <spring:property name="processedFileDirectory" value="${processed.file.directory}"/>
-		  <spring:property name="dataFilePath" value="${data.filePath}"/>
+		  <spring:property name="dataFileDirectory" value="${data.file.directory}"/>
+		  <spring:property name="useDynamicDelay" value="${rest.useDynamicDelay}"/>
+		  <spring:property name="staticPostDelay" value="${rest.staticPostDelay}"/>
+		  <spring:property name="minDynamicDelay" value="${rest.minDynamicDelay}"/>
+		  <spring:property name="maxDynamicDelay" value="${rest.maxDynamicDelay}"/>
 		  <spring:property name="maptoCSVTransformer" ref="maptoCSVTransformer"/>
+		  <spring:property name="awsUploader" ref="awsUploader"/>
 		</spring:bean>
 
+		<spring:bean id="awsUploader" class="com.gobalta.mule.mw.monitoring.AWSUploader">
+			<spring:property name="awsProfileName" value="${aws.profileName}"/>
+			<spring:property name="awsBucket" value="${aws.bucket}"/>
+			<spring:property name="awsKey" value="${aws.key}"/>
+		</spring:bean>
 	</spring:beans>
 	
     <sftp:connector name="SFTP" validateConnections="true" pollingFrequency="${sftp.polling.frequency}" doc:name="SFTP"/>
-    <s3:config name="Amazon_S3__Configuration" accessKey="${aws.key.id}" secretKey="${aws.secret.key}" doc:name="Amazon S3: Configuration"/>
 
 	<flow name="monitoring" >
 	    <http:inbound-endpoint exchange-pattern="request-response"
@@ -112,21 +121,14 @@ http://www.mulesoft.org/schema/mule/s3 http://www.mulesoft.org/schema/mule/s3/cu
         <sftp:inbound-endpoint connector-ref="SFTP" host="${sftp.host}" port="${sftp.port}" path="${sftp.path}" user="${sftp.user}" password="${sftp.password}" responseTimeout="${sftp.timeout}" pollingFrequency="${sftp.polling.frequency}" doc:name="SFTP">
             <file:filename-wildcard-filter pattern="*.csv"/>
         </sftp:inbound-endpoint>
+        <logger message="A new file is received from SFTP : #[message.inboundProperties.originalFilename]" level="INFO" doc:name="Log_New_File"/>
+        <transformer ref="csvToMapTransformer" doc:name="CSV_To_Map"/>
         <logger level="INFO" doc:name="Logger"/>
-        <logger message="A new file is received from SFTP : #[message.inboundProperties.originalFilename]" level="INFO" doc:name="Logger"/>
-        <transformer ref="csvToMapTransformer" doc:name="Transformer Reference"/>
-        <logger level="INFO" doc:name="Logger"/>
-        <invoke object-ref="csvReader" method="processFile" methodArguments="#[message.getPayload()],#[message.inboundProperties.originalFilename]" doc:name="Invoke"/>
-        <set-property propertyName="newStudySitesLog" value="#[com.gobalta.mule.mw.monitoring.DataFiles.getLatestDataFileName(${data.file})]" doc:name="Property"/>
-        <flow-ref name="Send_logs_to_S3" doc:name="Send_logs_to_S3"/>
+        <invoke object-ref="csvReader" method="processFile" methodArguments="#[message.getPayload()],#[message.inboundProperties.originalFilename]" doc:name="Post_To_Activate"/>
+        <set-property propertyName="newStudySitesLog" value="#[com.gobalta.mule.mw.monitoring.DataFiles.getLatestDataFileName(${data.file.directory})]" doc:name="GetDataFileName"/>
+        <logger message="Calling Send_logs_to_S3 flow." level="INFO" doc:name="Logger"/>
         <catch-exception-strategy doc:name="Catch Exception Strategy">
             <logger level="INFO" doc:name="Logger"/>
         </catch-exception-strategy>
     </flow>
-	<flow name="Send_logs_to_S3">
-        <file:inbound-endpoint path="${data.filePath}" moveToPattern="#[message.outboundProperties.'newStudySitesLog']" responseTimeout="10000" doc:name="File"/>
-        <logger message="JSON log file sent to AWS S3 : #[message.inboundProperties.originalFilename]" level="INFO" doc:name="Logger"/>
-        <s3:create-object config-ref="Amazon_S3__Configuration" bucketName="${aws.bucket}" key="${aws.key} #[message.inboundProperties.originalFilename]" doc:name="Amazon S3"/>
-	
-	</flow>
 </mule>

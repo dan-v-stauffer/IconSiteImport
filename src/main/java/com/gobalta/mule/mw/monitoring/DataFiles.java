@@ -12,7 +12,7 @@ public final class DataFiles {
 	public static String getLatestDataFileName(String filePath) {
 		
 		File choice = getLatestDataFile(filePath);
-		
+
 		return (choice == null ? EMPTY_STRING : choice.getName()); 
 		
 	}
@@ -32,6 +32,8 @@ public final class DataFiles {
 	            lastMod = file.lastModified();
 	        }
 	    }
+	    if(choice.isHidden()) choice = null;
+	    
 	    return choice;
 	}
 }

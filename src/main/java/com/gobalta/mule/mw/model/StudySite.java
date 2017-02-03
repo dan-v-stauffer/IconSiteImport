@@ -2,7 +2,6 @@ package com.gobalta.mule.mw.model;
 
 import java.io.Serializable;
 import java.util.Objects;
-import java.util.ArrayList;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
