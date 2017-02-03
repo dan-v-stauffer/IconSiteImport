@@ -205,15 +205,9 @@ public class CSVReader {
 			File file = DataFiles.getLatestDataFile(dataFileDirectory);
 
 			if(file != null)
-			{
-				//importedData = new ObjectMapper().readValue(file, new TypeReference<HashMap<String,StudySite[]>>(){});
-				
-				ObjectMapper objectMapper = new ObjectMapper().setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.PUBLIC_ONLY);
-				
+			{	
+				ObjectMapper objectMapper = new ObjectMapper().setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.PUBLIC_ONLY);				
 				importedData = objectMapper.readValue(file, new TypeReference<StudySites>(){});
-				
-				
-				//importedData = new ObjectMapper().readValue(file, new TypeReference<Collection<StudySite>>(){});
 			}
 		}
 		catch(IOException io) {
