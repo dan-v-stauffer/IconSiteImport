@@ -1,21 +1,22 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <classpath>
-	<classpathentry exported="true" kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-1.8"/>
-	<classpathentry exported="true" kind="con" path="MULE_RUNTIME/org.mule.tooling.server.3.7.3.ee"/>
-	<classpathentry kind="src" path="src/main/app"/>
-	<classpathentry kind="src" path="src/mappings"/>
-	<classpathentry kind="src" path="src/main/java"/>
-	<classpathentry kind="src" path="src/main/resources"/>
-	<classpathentry kind="src" output="target/test-classes" path="src/test/java"/>
-	<classpathentry kind="src" output="target/test-classes" path="src/test/resources"/>
-	<classpathentry kind="src" path="src/main/api"/>
-	<classpathentry kind="src" path="src/test/munit"/>
-	<classpathentry exported="true" kind="con" path="MULE_LIB/SAP/org.mule.tooling.ui.contribution.sap.3.5.0"/>
-	<classpathentry kind="var" path="EXT_LIB/aws-java-sdk-1.11.15.jar"/>
-	<classpathentry kind="var" path="EXT_LIB/httpclient-4.5.2.jar"/>
-	<classpathentry kind="var" path="EXT_LIB/httpcore-4.4.4.jar"/>
-	<classpathentry kind="var" path="EXT_LIB/jackson-annotations-2.7.0.jar"/>
-	<classpathentry kind="var" path="EXT_LIB/jackson-core-2.7.0.jar"/>
-	<classpathentry kind="var" path="EXT_LIB/jackson-databind-2.7.0.jar"/>
-	<classpathentry kind="output" path="target/classes"/>
+  <classpathentry kind="src" path="mappings" excluding="**/*.java"/>
+  <classpathentry kind="src" path="src/main/app" excluding="**/*.java"/>
+  <classpathentry kind="src" path="src/main/java"/>
+  <classpathentry kind="src" path="src/main/resources" excluding="**/*.java"/>
+  <classpathentry kind="src" path="src/test/java" output="target/test-classes"/>
+  <classpathentry kind="src" path="src/test/resources" output="target/test-classes" excluding="**/*.java"/>
+  <classpathentry kind="output" path="target/classes"/>
+  <classpathentry kind="con" path="MULE_RUNTIME"/>
+  <classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+  <classpathentry kind="var" path="M2_REPO/com/amazonaws/aws-java-sdk-osgi/1.11.15/aws-java-sdk-osgi-1.11.15.jar"/>
+  <classpathentry kind="var" path="M2_REPO/commons-logging/commons-logging/1.1.3/commons-logging-1.1.3.jar"/>
+  <classpathentry kind="var" path="M2_REPO/org/apache/httpcomponents/httpclient/4.5.2/httpclient-4.5.2.jar"/>
+  <classpathentry kind="var" path="M2_REPO/org/apache/httpcomponents/httpcore/4.4.4/httpcore-4.4.4.jar"/>
+  <classpathentry kind="var" path="M2_REPO/com/fasterxml/jackson/core/jackson-annotations/2.7.0/jackson-annotations-2.7.0.jar"/>
+  <classpathentry kind="var" path="M2_REPO/com/fasterxml/jackson/core/jackson-core/2.7.0/jackson-core-2.7.0.jar"/>
+  <classpathentry kind="var" path="M2_REPO/com/fasterxml/jackson/core/jackson-databind/2.7.0/jackson-databind-2.7.0.jar"/>
+  <classpathentry kind="var" path="M2_REPO/com/fasterxml/jackson/dataformat/jackson-dataformat-cbor/2.6.6/jackson-dataformat-cbor-2.6.6.jar"/>
+  <classpathentry kind="var" path="M2_REPO/joda-time/joda-time/2.8.1/joda-time-2.8.1.jar"/>
+  <classpathentry kind="var" path="M2_REPO/log4j/log4j/1.2.17/log4j-1.2.17.jar"/>
+  <classpathentry kind="var" path="M2_REPO/com/mulesoft/muleesb/transports/mule-transport-sap/2.2.8/mule-transport-sap-2.2.8.jar"/>
 </classpath>
